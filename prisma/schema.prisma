@@ -1,0 +1,194 @@
+// FINAL DATABASE SCHEMA - DO NOT MODIFY WITHOUT APPROVAL
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                    String       @id @default(cuid())
+  email                 String       @unique
+  emailVerified         DateTime?
+  passwordHash          String
+  twoFactorSecret       String?      @map("2fa_secret")
+  twoFactorEnabled      Boolean      @default(false)
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+  
+  validations           Validation[]
+  subscription          Subscription?
+  teamMemberships       TeamMember[]
+  
+  @@map("users")
+  @@index([email])
+  @@index([createdAt])
+}
+
+model Validation {
+  id                  String          @id @default(cuid())
+  userId              String          @map("user_id")
+  ideaDescription     String          @map("idea_description")
+  targetAudience      String?         @map("target_audience")
+  industry            String?
+  validationScore     Float?          @map("validation_score")
+  demandSignals       Json?           @map("demand_signals")
+  sentiment           Json?
+  painPoints          String[]        @map("pain_points")
+  keywords            String[]
+  status              String          @default("pending")
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  
+  user                User            @relation(fields: [userId], references: [id])
+  competitors         Competitor[]
+  interviews          Interview[]
+  marketSize          MarketSize?
+  mvpScope            MvpScope?
+  landingPages        LandingPage[]
+  
+  @@map("validations")
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([userId, createdAt])
+}
+
+model Competitor {
+  id            String  @id @default(cuid())
+  validationId  String  @map("validation_id")
+  name          String
+  url           String
+  description   String?
+  features      Json?
+  pricing       Json?
+  strengths     String[]
+  weaknesses    String[]
+  swot          Json?
+  analyzedAt    DateTime @default(now())
+  
+  validation    Validation @relation(fields: [validationId], references: [id], onDelete: Cascade)
+  
+  @@map("competitors")
+  @@index([validationId])
+}
+
+model Interview {
+  id            String  @id @default(cuid())
+  validationId  String  @map("validation_id")
+  persona       String
+  script        Json?
+  targetCount   Int     @default(10)
+  transcripts   Json?
+  themes        Json?
+  insights      String[]
+  completionRate Float?
+  status        String  @default("pending")
+  createdAt     DateTime @default(now())
+  completedAt   DateTime?
+  
+  validation    Validation @relation(fields: [validationId], references: [id], onDelete: Cascade)
+  
+  @@map("interviews")
+  @@index([validationId])
+  @@index([status])
+}
+
+model MarketSize {
+  id            String  @id @default(cuid())
+  validationId  String  @unique
+  tam           Float?
+  sam           Float?
+  som           Float?
+  growthRate    Float?
+  confidence    Float?
+  sources       Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  validation    Validation @relation(fields: [validationId], references: [id], onDelete: Cascade)
+  
+  @@map("market_size")
+  @@index([validationId])
+}
+
+model MvpScope {
+  id            String  @id @default(cuid())
+  validationId  String  @unique
+  recommendedFeatures Json?
+  buildVsBuy    Json?
+  totalEffort   String?
+  risks         String[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  validation    Validation @relation(fields: [validationId], references: [id], onDelete: Cascade)
+  
+  @@map("mvp_scope")
+  @@index([validationId])
+}
+
+model Subscription {
+  id                          String    @id @default(cuid())
+  userId                      String    @unique
+  stripeCustomerId            String
+  stripeSubscriptionId        String?
+  plan                        String    @default("free")
+  status                      String    @default("incomplete")
+  currentPeriodStart          DateTime?
+  currentPeriodEnd            DateTime?
+  cancelAtPeriodEnd           Boolean   @default(false)
+  trialStart                  DateTime?
+  trialEnd                    DateTime?
+  startedAt                   DateTime?
+  canceledAt                  DateTime?
+  quantity                    Int       @default(1)
+  usage                       Json?
+  metadata                    Json?
+  createdAt                   DateTime  @default(now())
+  updatedAt                   DateTime  @updatedAt
+  
+  user                        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  teamMembers                 TeamMember[]
+  
+  @@map("subscriptions")
+  @@index([userId])
+  @@index([stripeCustomerId])
+  @@index([status])
+  @@index([plan])
+}
+
+model TeamMember {
+  id            String    @id @default(cuid())
+  subscriptionId String
+  userId        String
+  role          String    @default("member") // admin, member, viewer
+  invitedAt     DateTime  @default(now())
+  joinedAt      DateTime?
+  status        String    @default("pending") // pending, accepted, rejected
+  
+  subscription  Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  user          User       @relation(fields: [userId], references: [id])
+  
+  @@map("team_members")
+  @@index([subscriptionId])
+  @@index([userId])
+  @@unique([subscriptionId, userId])
+}
+
+model LandingPage {
+  id            String  @id @default(cuid())
+  validationId  String  @map("validation_id")
+  variant       String
+  content       Json
+  status        String
+  createdAt     DateTime @default(now())
+  
+  validation    Validation @relation(fields: [validationId], references: [id], onDelete: Cascade)
+  
+  @@map("landing_pages")
+  @@index([validationId])
+  @@index([status])
+}

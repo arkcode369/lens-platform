@@ -1,0 +1,12 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <!-- Lens Logo - Monochrome White (for dark backgrounds) -->
+  
+  <!-- Black Background -->
+  <rect width="1024" height="1024" fill="black"/>
+  
+  <!-- White ring -->
+  <circle cx="512" cy="512" r="280" fill="none" stroke="white" stroke-width="96" stroke-linecap="round"/>
+  
+  <!-- Offset circle -->
+  <circle cx="620" cy="400" r="80" fill="white" opacity="0.25"/>
+</svg>

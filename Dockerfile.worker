@@ -1,0 +1,28 @@
+# Background job worker Dockerfile
+
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Install dependencies
+COPY package.json package-lock.json* ./
+RUN npm ci --only=production && npm cache clean --force
+
+# Copy application code
+COPY . .
+
+# Generate Prisma client
+RUN npm run db:generate
+
+# Set environment
+ENV NODE_ENV production
+
+# Add user for security
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 worker
+
+USER worker
+
+EXPOSE 3001
+
+CMD ["node", "scripts/worker.js"]
