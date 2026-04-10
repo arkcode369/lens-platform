@@ -5,16 +5,20 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: ai-product-platform-app
+    container_name: lens-app
     ports:
       - "3001:3000"
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/ai_product_platform
+      - DATABASE_URL=postgresql://lens_user:${POSTGRES_PASSWORD}@postgres:5432/lens_platform?schema=public
       - REDIS_URL=redis://redis:6379
+      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
+      - BETTER_AUTH_URL=${BETTER_AUTH_URL:-http://localhost:3001}
+      - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3001}
       - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
-      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
-      - NEXT_PUBLIC_APP_URL=https://${DOMAIN}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -26,7 +30,7 @@ services:
     volumes:
       - ./logs:/app/logs
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3001/api/health"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -35,11 +39,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.worker
-    container_name: ai-product-platform-worker
+    container_name: lens-worker
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/ai_product_platform
+      - DATABASE_URL=postgresql://lens_user:${POSTGRES_PASSWORD}@postgres:5432/lens_platform?schema=public
       - REDIS_URL=redis://redis:6379
+      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
       - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
     depends_on:
       postgres:
@@ -54,28 +59,27 @@ services:
 
   postgres:
     image: postgres:16-alpine
-    container_name: ai-product-platform-postgres
+    container_name: lens-postgres
     environment:
-      - POSTGRES_USER=postgres
+      - POSTGRES_USER=lens_user
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=ai_product_platform
+      - POSTGRES_DB=lens_platform
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./scripts/backup.sh:/docker-entrypoint-initdb.d/backup.sh
     ports:
       - "5432:5432"
     restart: unless-stopped
     networks:
       - app-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U lens_user"]
       interval: 10s
       timeout: 5s
       retries: 5
 
   redis:
     image: redis:7-alpine
-    container_name: ai-product-platform-redis
+    container_name: lens-redis
     command: redis-server --appendonly yes
     volumes:
       - redis_data:/data
@@ -92,14 +96,13 @@ services:
 
   nginx:
     image: nginx:alpine
-    container_name: ai-product-platform-nginx
+    container_name: lens-nginx
     ports:
       - "80:80"
       - "443:443"
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./ssl:/etc/nginx/ssl:ro
-      - nginx_logs:/var/log/nginx
     depends_on:
       - app
     restart: unless-stopped
